@@ -1,47 +1,54 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { ProjectSidebar } from "@/components/project-sidebar"
 import { ConnectionsView } from "@/components/connections-view"
-import { AIAssistant } from "@/components/ai-assistant"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 
 export default async function ConnectionsPage() {
   const supabase = await createClient()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
     redirect("/auth/login")
   }
 
-  const { data: projects } = await supabase
-    .from("projects")
+  const { data: connections } = await supabase
+    .from("connections")
     .select("*")
-    .eq("user_id", data.user.id)
-    .order("updated_at", { ascending: false })
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
 
   const { data: entities } = await supabase
     .from("entities")
-    .select("*")
-    .eq("user_id", data.user.id)
-    .order("created_at", { ascending: false })
+    .select("id, name, entity_type")
+    .eq("user_id", user.id)
 
-  const { data: connections } = await supabase.from("connections").select("*").eq("user_id", data.user.id)
+  const { data: documents } = await supabase
+    .from("documents")
+    .select("id, title")
+    .eq("user_id", user.id)
 
   return (
-    <div className="flex h-screen bg-background">
-      <ProjectSidebar projects={projects || []} userId={data.user.id} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <DashboardHeader user={data.user} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <ConnectionsView
-            userId={data.user.id}
-            projects={projects || []}
-            initialEntities={entities || []}
-            initialConnections={connections || []}
-          />
-        </main>
+    <div className="container py-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Connection Mapping</h1>
+          <p className="text-muted-foreground">
+            Visualize relationships and discover hidden patterns
+          </p>
+        </div>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Connection
+        </Button>
       </div>
-      <AIAssistant context={{ useDocuments: true }} />
+
+      <ConnectionsView 
+        connections={connections || []} 
+        entities={entities || []}
+        documents={documents || []}
+        userId={user.id} 
+      />
     </div>
   )
 }

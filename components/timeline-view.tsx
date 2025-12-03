@@ -11,9 +11,8 @@ import { AddEventDialog } from "./add-event-dialog"
 import type { Project, TimelineEvent as TimelineEventType } from "@/lib/types/database"
 
 interface TimelineViewProps {
+  events: TimelineEventType[]
   userId: string
-  projects: Project[]
-  initialEvents: TimelineEventType[]
 }
 
 type ViewMode = "chronological" | "grouped" | "compact"

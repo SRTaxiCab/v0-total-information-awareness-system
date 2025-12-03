@@ -1,40 +1,39 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { ProjectSidebar } from "@/components/project-sidebar"
 import { TimelineView } from "@/components/timeline-view"
-import { AIAssistant } from "@/components/ai-assistant"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 
 export default async function TimelinePage() {
   const supabase = await createClient()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
     redirect("/auth/login")
   }
-
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("user_id", data.user.id)
-    .order("updated_at", { ascending: false })
 
   const { data: events } = await supabase
     .from("timeline_events")
     .select("*")
-    .eq("user_id", data.user.id)
+    .eq("user_id", user.id)
     .order("event_date", { ascending: true })
 
   return (
-    <div className="flex h-screen bg-background">
-      <ProjectSidebar projects={projects || []} userId={data.user.id} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <DashboardHeader user={data.user} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <TimelineView userId={data.user.id} projects={projects || []} initialEvents={events || []} />
-        </main>
+    <div className="container py-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Timeline</h1>
+          <p className="text-muted-foreground">
+            Visualize events chronologically and discover temporal patterns
+          </p>
+        </div>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Event
+        </Button>
       </div>
-      <AIAssistant context={{ useDocuments: true }} />
+
+      <TimelineView events={events || []} userId={user.id} />
     </div>
   )
 }

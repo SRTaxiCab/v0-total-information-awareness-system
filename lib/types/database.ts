@@ -1,10 +1,41 @@
-// TypeScript types for database tables
+export type ContentType = 
+  | 'article'
+  | 'email'
+  | 'report'
+  | 'transcript'
+  | 'image'
+  | 'video'
+  | 'audio'
+  | 'document'
+  | 'note'
+  | 'other'
+
+export type EntityType = 
+  | 'person'
+  | 'organization'
+  | 'location'
+  | 'concept'
+  | 'event'
+
+export type ConnectionType = 
+  | 'related'
+  | 'references'
+  | 'contradicts'
+  | 'supports'
+  | 'custom'
+
+export type AnalysisType = 
+  | 'entities'
+  | 'connections'
+  | 'timeline'
+  | 'summary'
+  | 'full'
 
 export interface Profile {
   id: string
-  display_name: string | null
-  organization: string | null
-  role: string | null
+  email: string
+  full_name: string | null
+  avatar_url: string | null
   created_at: string
   updated_at: string
 }
@@ -12,9 +43,8 @@ export interface Profile {
 export interface Project {
   id: string
   user_id: string
-  title: string
+  name: string
   description: string | null
-  status: "active" | "archived" | "completed"
   color: string
   created_at: string
   updated_at: string
@@ -25,17 +55,14 @@ export interface Document {
   user_id: string
   project_id: string | null
   title: string
-  content: string | null
-  content_type: string
+  content: string
+  content_type: ContentType
   source_url: string | null
-  source_type: string | null
-  file_path: string | null
-  metadata: Record<string, any>
+  source_type: 'upload' | 'url' | 'manual'
+  metadata: Record<string, any> | null
   tags: string[]
-  status: "active" | "archived" | "deleted"
   created_at: string
   updated_at: string
-  indexed_at: string | null
 }
 
 export interface TimelineEvent {
@@ -45,28 +72,10 @@ export interface TimelineEvent {
   title: string
   description: string | null
   event_date: string
-  end_date: string | null
-  event_type: string | null
-  location: string | null
-  coordinates: { lat: number; lng: number } | null
-  metadata: Record<string, any>
-  tags: string[]
-  created_at: string
-  updated_at: string
-}
-
-export interface Connection {
-  id: string
-  user_id: string
-  project_id: string | null
-  source_id: string
-  source_type: "document" | "timeline_event" | "entity"
-  target_id: string
-  target_type: "document" | "timeline_event" | "entity"
-  connection_type: string
-  strength: number
-  description: string | null
-  metadata: Record<string, any>
+  event_type: string
+  related_documents: string[]
+  related_entities: string[]
+  metadata: Record<string, any> | null
   created_at: string
   updated_at: string
 }
@@ -76,11 +85,26 @@ export interface Entity {
   user_id: string
   project_id: string | null
   name: string
-  entity_type: "person" | "organization" | "location" | "event" | "concept"
+  entity_type: EntityType
   description: string | null
-  aliases: string[]
-  metadata: Record<string, any>
-  tags: string[]
+  metadata: Record<string, any> | null
+  related_documents: string[]
+  created_at: string
+  updated_at: string
+}
+
+export interface Connection {
+  id: string
+  user_id: string
+  project_id: string | null
+  source_id: string
+  source_type: 'document' | 'entity'
+  target_id: string
+  target_type: 'document' | 'entity'
+  connection_type: ConnectionType
+  strength: number
+  description: string | null
+  metadata: Record<string, any> | null
   created_at: string
   updated_at: string
 }
@@ -89,24 +113,18 @@ export interface AIInteraction {
   id: string
   user_id: string
   project_id: string | null
-  interaction_type: "query" | "analysis" | "summary" | "extraction" | "suggestion"
-  input_data: Record<string, any>
-  output_data: Record<string, any>
-  model_used: string | null
-  tokens_used: number | null
-  related_documents: string[]
+  message: string
+  response: string
+  context: Record<string, any> | null
   created_at: string
 }
 
 export interface SavedQuery {
   id: string
   user_id: string
-  project_id: string | null
   name: string
-  query_data: Record<string, any>
   description: string | null
-  alert_enabled: boolean
-  last_run_at: string | null
+  query_params: Record<string, any>
   created_at: string
   updated_at: string
 }
@@ -115,13 +133,8 @@ export interface AnalysisSession {
   id: string
   user_id: string
   project_id: string | null
-  title: string
-  description: string | null
-  insights: string | null
-  related_documents: string[]
-  related_events: string[]
-  metadata: Record<string, any>
-  status: "in_progress" | "completed" | "archived"
+  document_id: string | null
+  analysis_type: AnalysisType
+  results: Record<string, any>
   created_at: string
-  updated_at: string
 }

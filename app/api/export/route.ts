@@ -1,75 +1,105 @@
-import { createServerClient } from "@/lib/supabase/server"
-import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-export async function POST(request: Request) {
-  const supabase = await createServerClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+export async function POST(req: Request) {
   try {
-    const body = await request.json()
-    const { documentIds, format = "json", includeMetadata = true } = body
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
+    if (!user) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+
+    const { format, projectId, documentIds } = await req.json()
+
+    // Build query
     let query = supabase.from("documents").select("*").eq("user_id", user.id)
+
+    if (projectId) {
+      query = query.eq("project_id", projectId)
+    }
 
     if (documentIds && documentIds.length > 0) {
       query = query.in("id", documentIds)
     }
 
-    const { data: documents, error } = await query
+    const { data: documents, error } = await query.order("created_at", { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error("Database error:", error)
+      return new Response("Failed to fetch documents", { status: 500 })
+    }
 
-    let exportData: any
+    let exportData: string
+    let contentType: string
+    let filename: string
 
     switch (format) {
       case "json":
-        exportData = includeMetadata
-          ? documents
-          : documents.map((doc) => ({
-              title: doc.title,
-              content: doc.content,
-              tags: doc.tags,
-            }))
+        exportData = JSON.stringify(documents, null, 2)
+        contentType = "application/json"
+        filename = `sentinel-export-${Date.now()}.json`
         break
 
       case "csv":
-        const headers = ["Title", "Content", "Tags", "Created"]
+        // Convert to CSV
+        const headers = ["ID", "Title", "Content Type", "Created At", "Tags", "Source URL"]
         const rows = documents.map((doc) => [
+          doc.id,
           doc.title,
-          doc.content.replace(/"/g, '""'),
-          doc.tags?.join(";") || "",
+          doc.content_type,
           doc.created_at,
+          doc.tags?.join("; ") || "",
+          doc.source_url || "",
         ])
-        exportData = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
+
+        exportData = [
+          headers.join(","),
+          ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+        ].join("\n")
+
+        contentType = "text/csv"
+        filename = `sentinel-export-${Date.now()}.csv`
         break
 
       case "markdown":
+        // Convert to Markdown
         exportData = documents
           .map(
-            (doc) =>
-              `# ${doc.title}\n\n${doc.content}\n\n---\nTags: ${doc.tags?.join(", ") || "None"}\nCreated: ${doc.created_at}\n\n`,
+            (doc) => `# ${doc.title}
+
+**Type:** ${doc.content_type}
+**Created:** ${new Date(doc.created_at).toLocaleDateString()}
+**Tags:** ${doc.tags?.join(", ") || "None"}
+${doc.source_url ? `**Source:** ${doc.source_url}` : ""}
+
+---
+
+${doc.content}
+
+---
+
+`
           )
-          .join("\n")
+          .join("\n\n")
+
+        contentType = "text/markdown"
+        filename = `sentinel-export-${Date.now()}.md`
         break
 
       default:
-        exportData = documents
+        return new Response("Invalid format", { status: 400 })
     }
 
-    return NextResponse.json({
-      data: exportData,
-      count: documents.length,
-      format,
+    return new Response(exportData, {
+      headers: {
+        "Content-Type": contentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
     })
   } catch (error) {
-    console.error("[v0] Export error:", error)
-    return NextResponse.json({ error: "Failed to export data" }, { status: 500 })
+    console.error("Export Error:", error)
+    return new Response("Internal Server Error", { status: 500 })
   }
 }

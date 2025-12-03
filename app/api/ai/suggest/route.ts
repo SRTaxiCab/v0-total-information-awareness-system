@@ -1,68 +1,95 @@
-import { createClient } from "@/lib/supabase/server"
-import { generateText } from "ai"
+import { createClient } from '@/lib/supabase/server'
+import { openai } from '@ai-sdk/openai'
+import { generateObject } from 'ai'
+import { z } from 'zod'
+
+export const runtime = 'edge'
+
+const suggestionSchema = z.object({
+  suggestions: z.array(
+    z.object({
+      title: z.string(),
+      description: z.string(),
+      type: z.enum(['search', 'document', 'entity', 'connection', 'timeline']),
+      priority: z.enum(['high', 'medium', 'low']),
+    })
+  ),
+})
 
 export async function POST(req: Request) {
   try {
-    const { projectId, currentFocus } = await req.json()
     const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return new Response("Unauthorized", { status: 401 })
+    if (authError || !user) {
+      return new Response('Unauthorized', { status: 401 })
     }
 
-    // Get project context
-    const { data: project } = await supabase.from("projects").select("*").eq("id", projectId).single()
+    const { projectId, context } = await req.json()
 
-    const { data: documents } = await supabase
-      .from("documents")
-      .select("title, content, tags")
-      .eq("project_id", projectId)
-      .order("created_at", { ascending: false })
-      .limit(20)
+    // Gather context about the project
+    let projectContext = ''
+    
+    if (projectId) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('name, description')
+        .eq('id', projectId)
+        .eq('user_id', user.id)
+        .single()
 
-    const { data: entities } = await supabase
-      .from("entities")
-      .select("name, entity_type")
-      .eq("project_id", projectId)
-      .limit(30)
+      if (project) {
+        projectContext += `Project: ${project.name}\n${project.description || ''}\n\n`
+      }
 
-    const context = `
-Project: ${project?.title}
-Description: ${project?.description || "No description"}
+      // Get recent documents
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('title, content_type, tags')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
 
-Recent Documents: ${documents?.map((d) => d.title).join(", ") || "None"}
+      if (documents && documents.length > 0) {
+        projectContext += `Recent documents:\n${documents.map((d) => `- ${d.title} (${d.content_type})`).join('\n')}\n\n`
+      }
 
-Known Entities: ${entities?.map((e) => `${e.name} (${e.entity_type})`).join(", ") || "None"}
+      // Get entities
+      const { data: entities } = await supabase
+        .from('entities')
+        .select('name, entity_type')
+        .eq('project_id', projectId)
+        .eq('user_id', user.id)
+        .limit(10)
 
-Current Focus: ${currentFocus || "General research"}
-`
+      if (entities && entities.length > 0) {
+        projectContext += `Key entities:\n${entities.map((e) => `- ${e.name} (${e.entity_type})`).join('\n')}\n\n`
+      }
+    }
 
-    const { text } = await generateText({
-      model: "openai/gpt-4o-mini",
-      prompt: `You are a research assistant. Based on the following project context, suggest 5 actionable next steps or research directions that would help advance this investigation. Be specific and practical.
+    const { object } = await generateObject({
+      model: openai('gpt-4-turbo'),
+      schema: suggestionSchema,
+      prompt: `You are a research assistant helping with an investigation. Based on the current research context, suggest next steps.
 
-${context}
+${projectContext}
 
-Provide suggestions in JSON format: [{"title": "...", "description": "...", "priority": "high|medium|low"}]`,
+${context ? `Additional context: ${context}\n\n` : ''}
+
+Suggest 3-5 actionable next steps for the researcher. These could be:
+- Search queries to run
+- Documents to find or analyze
+- Entities to investigate
+- Connections to explore
+- Timeline events to map
+
+Prioritize suggestions based on their potential impact on the investigation.`,
     })
 
-    // Log the interaction
-    await supabase.from("ai_interactions").insert({
-      user_id: user.id,
-      project_id: projectId,
-      interaction_type: "suggestion",
-      input_data: { current_focus: currentFocus },
-      output_data: { suggestions: text },
-      model_used: "gpt-4o-mini",
-    })
-
-    return Response.json({ suggestions: text })
+    return Response.json(object)
   } catch (error) {
-    console.error("AI suggestion error:", error)
-    return Response.json({ error: "Error generating suggestions" }, { status: 500 })
+    console.error('Suggestion error:', error)
+    return new Response('Internal server error', { status: 500 })
   }
 }

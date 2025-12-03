@@ -11,13 +11,14 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 interface AIAssistantProps {
+  userId: string
   projectId?: string
   context?: {
     useDocuments?: boolean
   }
 }
 
-export function AIAssistant({ projectId, context }: AIAssistantProps) {
+export function AIAssistant({ userId, projectId, context }: AIAssistantProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
 

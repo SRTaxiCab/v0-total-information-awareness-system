@@ -83,7 +83,7 @@ export function SearchInterface({ userId, projects }: SearchInterfaceProps) {
               <SelectItem value="all">All Projects</SelectItem>
               {projects.map((project) => (
                 <SelectItem key={project.id} value={project.id}>
-                  {project.title}
+                  {project.name}
                 </SelectItem>
               ))}
             </SelectContent>

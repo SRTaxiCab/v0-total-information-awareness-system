@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { useChat } from "ai/react"
+import { useState, FormEvent } from "react"
 import { Bot, Send, Loader2, Sparkles, X, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -9,6 +8,12 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+}
 
 interface AIAssistantProps {
   projectId?: string
@@ -20,11 +25,79 @@ interface AIAssistantProps {
 export function AIAssistant({ projectId, context }: AIAssistantProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/ai/chat",
-    body: { projectId, context },
-  })
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input,
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          projectId,
+          context,
+        }),
+      })
+
+      if (!response.ok) throw new Error("Failed to get response")
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let assistantMessage = ""
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value)
+          assistantMessage += chunk
+
+          setMessages((prev) => {
+            const newMessages = [...prev]
+            const lastMessage = newMessages[newMessages.length - 1]
+            if (lastMessage?.role === "assistant") {
+              lastMessage.content = assistantMessage
+            } else {
+              newMessages.push({
+                id: Date.now().toString(),
+                role: "assistant",
+                content: assistantMessage,
+              })
+            }
+            return newMessages
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error)
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "assistant",
+          content: "Sorry, I encountered an error. Please try again.",
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (isMinimized) {
     return (
@@ -42,7 +115,7 @@ export function AIAssistant({ projectId, context }: AIAssistantProps) {
     <Card
       className={cn(
         "fixed shadow-xl transition-all duration-300",
-        isExpanded ? "bottom-0 right-0 left-0 top-0 m-0 rounded-none" : "bottom-6 right-6 w-96 h-[600px]",
+        isExpanded ? "bottom-0 right-0 left-0 top-0 m-0 rounded-none" : "bottom-6 right-6 w-96 h-[600px]"
       )}
     >
       <div className="flex flex-col h-full">
@@ -104,7 +177,7 @@ export function AIAssistant({ projectId, context }: AIAssistantProps) {
                 <div
                   className={cn(
                     "rounded-lg px-4 py-2 max-w-[80%]",
-                    message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted",
+                    message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   )}
                 >
                   <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -131,7 +204,7 @@ export function AIAssistant({ projectId, context }: AIAssistantProps) {
         <form onSubmit={handleSubmit} className="p-4 border-t bg-card flex items-center gap-2">
           <Input
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Ask me anything about your research..."
             disabled={isLoading}
             className="flex-1"

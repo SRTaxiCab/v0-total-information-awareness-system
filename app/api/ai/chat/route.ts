@@ -1,13 +1,12 @@
 import { createClient } from "@/lib/supabase/server"
+import { openai } from "@ai-sdk/openai"
 import { streamText } from "ai"
 
-export const runtime = "nodejs"
+export const runtime = "edge"
 
 export async function POST(req: Request) {
   try {
-    const { messages, projectId, context } = await req.json()
     const supabase = await createClient()
-
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -16,56 +15,74 @@ export async function POST(req: Request) {
       return new Response("Unauthorized", { status: 401 })
     }
 
-    // Get relevant documents for context if project is specified
-    let documentContext = ""
-    if (projectId && context?.useDocuments) {
+    const { message, projectId, documentIds } = await req.json()
+
+    let context = ""
+
+    // If document IDs provided, fetch their content for context
+    if (documentIds && documentIds.length > 0) {
       const { data: documents } = await supabase
         .from("documents")
-        .select("title, content, tags")
+        .select("title, content, metadata")
+        .in("id", documentIds)
         .eq("user_id", user.id)
-        .eq("project_id", projectId)
-        .limit(10)
 
-      if (documents && documents.length > 0) {
-        documentContext = `\n\nRelevant documents from your research:\n${documents
-          .map((doc) => `- ${doc.title}: ${doc.content?.substring(0, 200)}...`)
-          .join("\n")}`
+      if (documents) {
+        context = documents
+          .map((doc) => `Document: ${doc.title}\n${doc.content.substring(0, 2000)}`)
+          .join("\n\n")
       }
     }
 
-    const systemPrompt = `You are an advanced AI research assistant for a Total Information Awareness system. Your role is to help researchers, journalists, OSINT specialists, archivists, historians, and intelligence analysts with their investigations.
+    // If project ID provided, get project context
+    if (projectId) {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("name, description")
+        .eq("id", projectId)
+        .eq("user_id", user.id)
+        .single()
 
-Your capabilities include:
-- Analyzing documents and finding patterns
-- Suggesting connections between information
-- Summarizing complex research materials
-- Extracting entities (people, organizations, locations, events)
-- Identifying timelines and sequences of events
-- Proposing new research directions
-- Helping organize and structure research projects
+      if (project) {
+        context = `Project: ${project.name}\n${project.description || ""}\n\n${context}`
+      }
+    }
 
-Be concise, analytical, and focused on actionable insights. When suggesting connections or patterns, explain your reasoning.${documentContext}`
+    const systemPrompt = `You are an AI research assistant for the Sentinel Total Information Awareness platform. 
+You help researchers, journalists, and analysts understand their data, find connections, and generate insights.
+
+${context ? `Context:\n${context}` : ""}
+
+Provide clear, concise, and actionable responses. When analyzing documents, focus on:
+- Key entities (people, organizations, locations)
+- Important dates and events
+- Connections and relationships
+- Patterns and anomalies
+- Research suggestions`
 
     const result = await streamText({
-      model: "openai/gpt-4o-mini",
+      model: openai("gpt-4-turbo"),
       system: systemPrompt,
-      messages,
+      messages: [{ role: "user", content: message }],
+      temperature: 0.7,
+      maxTokens: 2000,
     })
 
-    // Log the interaction
-    const lastMessage = messages[messages.length - 1]
-    await supabase.from("ai_interactions").insert({
-      user_id: user.id,
-      project_id: projectId,
-      interaction_type: "query",
-      input_data: { message: lastMessage },
-      output_data: { streaming: true },
-      model_used: "gpt-4o-mini",
-    })
+    // Save interaction to database (fire and forget)
+    supabase
+      .from("ai_interactions")
+      .insert({
+        user_id: user.id,
+        project_id: projectId || null,
+        message,
+        response: "", // Will be updated with full response later
+        interaction_type: "chat",
+      })
+      .then()
 
-    return result.toUIMessageStreamResponse()
+    return result.toDataStreamResponse()
   } catch (error) {
-    console.error("AI chat error:", error)
-    return new Response("Error processing request", { status: 500 })
+    console.error("AI Chat Error:", error)
+    return new Response("Internal Server Error", { status: 500 })
   }
 }

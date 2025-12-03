@@ -1,19 +1,33 @@
-import { createServerClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
+import { createClient } from "@/lib/supabase/server"
+import { DashboardHeader } from "@/components/dashboard-header"
+import { ProjectSidebar } from "@/components/project-sidebar"
 import { SettingsView } from "@/components/settings-view"
 
 export default async function SettingsPage() {
-  const supabase = await createServerClient()
+  const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
     redirect("/auth/login")
   }
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", data.user.id)
+    .order("updated_at", { ascending: false })
 
-  return <SettingsView user={user} profile={profile} />
+  return (
+    <div className="flex h-screen bg-background">
+      <ProjectSidebar projects={projects || []} userId={data.user.id} />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        <DashboardHeader user={data.user} profile={profile} />
+        <main className="flex-1 overflow-y-auto p-6">
+          <SettingsView user={data.user} profile={profile} />
+        </main>
+      </div>
+    </div>
+  )
 }

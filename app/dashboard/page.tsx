@@ -30,7 +30,7 @@ export default async function DashboardPage() {
           <SearchInterface userId={data.user.id} projects={projects || []} />
         </main>
       </div>
-      <AIAssistant userId={data.user.id} />
+      <AIAssistant />
     </div>
   )
 }

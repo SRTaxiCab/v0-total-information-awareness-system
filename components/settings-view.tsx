@@ -1,264 +1,152 @@
 "use client"
 
 import { useState } from "react"
+import { User } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Switch } from "@/components/ui/switch"
-import { User, Bell, Shield, Database, Zap } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
-import { toast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
+import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
-interface SettingsViewProps {
-  user: any
-  profile: any
+interface Profile {
+  id: string
+  full_name?: string
+  organization?: string
 }
 
-export function SettingsView({ user, profile }: SettingsViewProps) {
-  const [isLoading, setIsLoading] = useState(false)
-  const supabase = createBrowserClient()
+export function SettingsView({ user, profile }: { user: User; profile: Profile | null }) {
+  const [fullName, setFullName] = useState(profile?.full_name || "")
+  const [organization, setOrganization] = useState(profile?.organization || "")
+  const [loading, setLoading] = useState(false)
+  const supabase = createClient()
   const router = useRouter()
 
-  const [settings, setSettings] = useState({
-    fullName: profile?.full_name || "",
-    email: user.email,
-    notifications: true,
-    aiAssistance: true,
-    autoAnalysis: false,
-    darkMode: true,
-  })
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
 
-  const handleSave = async () => {
-    setIsLoading(true)
     try {
       const { error } = await supabase
         .from("profiles")
-        .update({
-          full_name: settings.fullName,
+        .upsert({
+          id: user.id,
+          full_name: fullName,
+          organization,
+          updated_at: new Date().toISOString(),
         })
-        .eq("id", user.id)
 
       if (error) throw error
 
-      toast({
-        title: "Settings saved",
-        description: "Your preferences have been updated",
-      })
+      toast.success("Profile updated successfully")
+      router.refresh()
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save settings",
-        variant: "destructive",
-      })
+      toast.error("Failed to update profile")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
-    router.push("/auth/login")
+    router.push("/")
+    router.refresh()
   }
 
   return (
-    <div className="flex-1 space-y-6 p-8 max-w-4xl">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your account and preferences</p>
+        <h1 className="text-3xl font-bold">Settings</h1>
+        <p className="text-muted-foreground mt-2">Manage your account and preferences</p>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList>
-          <TabsTrigger value="profile">
-            <User className="h-4 w-4 mr-2" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="preferences">
-            <Zap className="h-4 w-4 mr-2" />
-            Preferences
-          </TabsTrigger>
-          <TabsTrigger value="notifications">
-            <Bell className="h-4 w-4 mr-2" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="security">
-            <Shield className="h-4 w-4 mr-2" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="data">
-            <Database className="h-4 w-4 mr-2" />
-            Data
-          </TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile Information</CardTitle>
+          <CardDescription>Update your personal details</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleUpdateProfile} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" value={user.email} disabled />
+            </div>
 
-        <TabsContent value="profile" className="mt-6">
-          <Card className="p-6 space-y-6">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
               <Input
                 id="fullName"
-                value={settings.fullName}
-                onChange={(e) => setSettings({ ...settings, fullName: e.target.value })}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={loading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" value={settings.email} disabled />
-              <p className="text-sm text-muted-foreground">Email cannot be changed</p>
+              <Label htmlFor="organization">Organization</Label>
+              <Input
+                id="organization"
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
+                placeholder="Your organization or affiliation"
+                disabled={loading}
+              />
             </div>
 
-            <div className="space-y-2">
-              <Label>Account Created</Label>
-              <p className="text-sm text-foreground">{new Date(user.created_at).toLocaleDateString()}</p>
-            </div>
-
-            <Button onClick={handleSave} disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save Changes"}
+            <Button type="submit" disabled={loading}>
+              {loading ? "Saving..." : "Save Changes"}
             </Button>
-          </Card>
-        </TabsContent>
+          </form>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="preferences" className="mt-6">
-          <Card className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>AI Assistance</Label>
-                <p className="text-sm text-muted-foreground">Enable AI-powered research suggestions</p>
-              </div>
-              <Switch
-                checked={settings.aiAssistance}
-                onCheckedChange={(checked) => setSettings({ ...settings, aiAssistance: checked })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Auto-Analysis</Label>
-                <p className="text-sm text-muted-foreground">Automatically analyze new documents</p>
-              </div>
-              <Switch
-                checked={settings.autoAnalysis}
-                onCheckedChange={(checked) => setSettings({ ...settings, autoAnalysis: checked })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Dark Mode</Label>
-                <p className="text-sm text-muted-foreground">Use dark theme for the interface</p>
-              </div>
-              <Switch
-                checked={settings.darkMode}
-                onCheckedChange={(checked) => setSettings({ ...settings, darkMode: checked })}
-              />
-            </div>
-
-            <Button onClick={handleSave} disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save Preferences"}
-            </Button>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="notifications" className="mt-6">
-          <Card className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">Receive updates via email</p>
-              </div>
-              <Switch
-                checked={settings.notifications}
-                onCheckedChange={(checked) => setSettings({ ...settings, notifications: checked })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Analysis Complete</Label>
-                <p className="text-sm text-muted-foreground">Notify when AI analysis finishes</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>New Connections Found</Label>
-                <p className="text-sm text-muted-foreground">Alert when patterns are discovered</p>
-              </div>
-              <Switch defaultChecked />
-            </div>
-
-            <Button onClick={handleSave} disabled={isLoading}>
-              {isLoading ? "Saving..." : "Save Notification Settings"}
-            </Button>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="mt-6">
-          <Card className="p-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>Manage your account settings</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Change Password</h3>
-              <p className="text-sm text-muted-foreground mb-4">Update your password to keep your account secure</p>
-              <Button variant="outline">Change Password</Button>
+              <p className="font-medium">Sign Out</p>
+              <p className="text-sm text-muted-foreground">Sign out of your account</p>
             </div>
+            <Button variant="outline" onClick={handleSignOut}>
+              Sign Out
+            </Button>
+          </div>
 
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Two-Factor Authentication</h3>
-              <p className="text-sm text-muted-foreground mb-4">Add an extra layer of security to your account</p>
-              <Button variant="outline">Enable 2FA</Button>
-            </div>
+          <Separator />
 
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-destructive mb-2">Sign Out</h3>
-              <p className="text-sm text-muted-foreground mb-4">Sign out from this device</p>
-              <Button variant="destructive" onClick={handleSignOut}>
-                Sign Out
-              </Button>
-            </div>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="data" className="mt-6">
-          <Card className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-foreground mb-2">Export Data</h3>
-              <p className="text-sm text-muted-foreground mb-4">Download all your research data</p>
-              <div className="flex gap-2">
-                <Button variant="outline">Export as JSON</Button>
-                <Button variant="outline">Export as CSV</Button>
-              </div>
+              <p className="font-medium text-destructive">Delete Account</p>
+              <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
             </div>
+            <Button variant="destructive" disabled>
+              Delete Account
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-foreground mb-2">Data Usage</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Documents</span>
-                  <span className="text-foreground font-medium">{profile?.document_count || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Projects</span>
-                  <span className="text-foreground font-medium">{profile?.project_count || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Storage Used</span>
-                  <span className="text-foreground font-medium">--</span>
-                </div>
-              </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Data & Privacy</CardTitle>
+          <CardDescription>Manage your data and export options</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Export All Data</p>
+              <p className="text-sm text-muted-foreground">Download all your documents and research data</p>
             </div>
-
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-semibold text-destructive mb-2">Delete Account</h3>
-              <p className="text-sm text-muted-foreground mb-4">Permanently delete your account and all data</p>
-              <Button variant="destructive">Delete Account</Button>
-            </div>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <Button variant="outline">Export Data</Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

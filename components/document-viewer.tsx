@@ -7,8 +7,8 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Download, Share2, Tag, Link2, Users, MapPin, Building, Sparkles } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
-import { toast } from "@/hooks/use-toast"
+import { createClient } from "@/lib/supabase/client"
+import { toast } from "sonner"
 
 interface DocumentViewerProps {
   document: any
@@ -18,7 +18,7 @@ interface DocumentViewerProps {
 
 export function DocumentViewer({ document, connections, entities }: DocumentViewerProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const supabase = createBrowserClient()
+  const supabase = createClient()
 
   const handleAnalyze = async () => {
     setIsAnalyzing(true)
@@ -33,17 +33,10 @@ export function DocumentViewer({ document, connections, entities }: DocumentView
       })
 
       if (response.ok) {
-        toast({
-          title: "Analysis Complete",
-          description: "Document has been analyzed by AI",
-        })
+        toast.success("Document has been analyzed by AI")
       }
     } catch (error) {
-      toast({
-        title: "Analysis Failed",
-        description: "Could not analyze document",
-        variant: "destructive",
-      })
+      toast.error("Could not analyze document")
     } finally {
       setIsAnalyzing(false)
     }

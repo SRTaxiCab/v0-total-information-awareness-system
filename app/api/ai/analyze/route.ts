@@ -1,7 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { openai } from "@ai-sdk/openai"
-import { generateObject } from "ai"
-import { z } from "zod"
+// Mock analysis for sandbox environment
 
 export const runtime = "edge"
 

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { generateText } from "ai"
+import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
 
     if (!documents || documents.length === 0) {
-      return Response.json({ error: "No documents found" }, { status: 404 })
+      return NextResponse.json({ error: "No documents found" }, { status: 404 })
     }
 
     const documentText = documents.map((doc) => `Title: ${doc.title}\nContent: ${doc.content}\n\n`).join("")
@@ -82,9 +83,9 @@ ${documentText}`
       related_documents: documentIds,
     })
 
-    return Response.json({ result: text, analysis_type: analysisType })
+    return NextResponse.json({ result: text, analysis_type: analysisType })
   } catch (error) {
     console.error("AI analysis error:", error)
-    return Response.json({ error: "Error processing analysis" }, { status: 500 })
+    return NextResponse.json({ error: "Error processing analysis" }, { status: 500 })
   }
 }

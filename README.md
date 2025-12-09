@@ -74,34 +74,84 @@ A comprehensive research intelligence platform designed for journalists, researc
 - **Components**: shadcn/ui
 - **Language**: TypeScript
 
-## Getting Started
+## 🚀 Quick Start
+
+**The application is production-ready and running!**
+
+### Current Status
+
+✅ Dependencies installed  
+✅ TypeScript configured  
+✅ Build successful  
+✅ Development server running at http://localhost:3000
+
+### Next Steps
+
+1. **Configure Environment Variables**
+   - Edit `.env.local` with your Supabase and OpenAI credentials
+   - See [SETUP.md](./SETUP.md) for detailed instructions
+
+2. **Set Up Database**
+   - Run SQL scripts in your Supabase project
+   - See [DATABASE_SETUP.md](./DATABASE_SETUP.md) for step-by-step guide
+
+3. **Access the Application**
+   - Open http://localhost:3000
+   - Create an account and start researching!
 
 ### Prerequisites
 
-- Node.js 18+ 
-- Supabase account
-- Vercel account (optional, for deployment)
+- Node.js 18+ ✅ (installed)
+- Supabase account (free tier works)
+- OpenAI API key (for AI features)
 
 ### Installation
 
-1. Clone the repository
-2. Install dependencies:
-   \`\`\`bash
-   npm install
-   \`\`\`
+Dependencies are already installed. If you need to reinstall:
 
-3. Set up environment variables (see `.env.example`)
+```bash
+pnpm install
+```
 
-4. Run database migrations:
-   - Execute scripts in `/scripts` folder in order
-   - These create tables, triggers, and functions
+### Environment Setup
 
-5. Start development server:
-   \`\`\`bash
-   npm run dev
-   \`\`\`
+1. Copy `.env.example` to `.env.local` (already done)
+2. Add your credentials to `.env.local`:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_key
+   OPENAI_API_KEY=your_openai_key
+   ```
 
-6. Open [http://localhost:3000](http://localhost:3000)
+### Database Setup
+
+Run these SQL scripts in your Supabase SQL Editor (in order):
+1. `scripts/001_create_core_tables.sql`
+2. `scripts/002_create_triggers.sql`
+3. `scripts/003_create_search_functions.sql`
+
+See [DATABASE_SETUP.md](./DATABASE_SETUP.md) for detailed instructions.
+
+### Development
+
+```bash
+# Start dev server (already running)
+pnpm run dev
+
+# Build for production
+pnpm run build
+
+# Start production server
+pnpm run start
+
+# Run linting
+pnpm run lint
+```
+
+### Access Points
+
+- **Local:** http://localhost:3000
+- **Network:** http://192.168.6.52:3000
 
 ### Database Setup
 

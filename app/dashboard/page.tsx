@@ -22,15 +22,12 @@ export default async function DashboardPage() {
     .order("updated_at", { ascending: false })
 
   return (
-    <div className="flex h-screen bg-background">
-      <ProjectSidebar projects={projects || []} userId={data.user.id} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <DashboardHeader user={data.user} profile={profile} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <SearchInterface userId={data.user.id} projects={projects || []} />
-        </main>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Search and analyze your research documents</p>
       </div>
-      <AIAssistant userId={data.user.id} />
+      <SearchInterface userId={data.user.id} projects={projects || []} />
     </div>
   )
 }

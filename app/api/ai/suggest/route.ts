@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { generateText } from "ai"
+import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
   try {
@@ -60,9 +61,9 @@ Provide suggestions in JSON format: [{"title": "...", "description": "...", "pri
       model_used: "gpt-4o-mini",
     })
 
-    return Response.json({ suggestions: text })
+    return NextResponse.json({ suggestions: text })
   } catch (error) {
     console.error("AI suggestion error:", error)
-    return Response.json({ error: "Error generating suggestions" }, { status: 500 })
+    return NextResponse.json({ error: "Error generating suggestions" }, { status: 500 })
   }
 }

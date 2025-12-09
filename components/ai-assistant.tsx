@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { useChat } from "ai/react"
+import { useState, type FormEvent } from "react"
 import { Bot, Send, Loader2, Sparkles, X, Maximize2, Minimize2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -9,6 +8,12 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+
+interface Message {
+  id: string
+  role: "user" | "assistant"
+  content: string
+}
 
 interface AIAssistantProps {
   projectId?: string
@@ -20,11 +25,56 @@ interface AIAssistantProps {
 export function AIAssistant({ projectId, context }: AIAssistantProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: "/api/ai/chat",
-    body: { projectId, context },
-  })
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: input,
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: input,
+          projectId,
+          context,
+        }),
+      })
+
+      const data = await response.json()
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.response || "I'm sorry, I couldn't process that request.",
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (error) {
+      console.error("Chat error:", error)
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "I'm sorry, there was an error processing your request.",
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   if (isMinimized) {
     return (
@@ -131,7 +181,7 @@ export function AIAssistant({ projectId, context }: AIAssistantProps) {
         <form onSubmit={handleSubmit} className="p-4 border-t bg-card flex items-center gap-2">
           <Input
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Ask me anything about your research..."
             disabled={isLoading}
             className="flex-1"

@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { ProjectSidebar } from "@/components/project-sidebar"
 import { ConnectionsView } from "@/components/connections-view"
-import { AIAssistant } from "@/components/ai-assistant"
 
 export default async function ConnectionsPage() {
   const supabase = await createClient()
@@ -28,20 +25,17 @@ export default async function ConnectionsPage() {
   const { data: connections } = await supabase.from("connections").select("*").eq("user_id", data.user.id)
 
   return (
-    <div className="flex h-screen bg-background">
-      <ProjectSidebar projects={projects || []} userId={data.user.id} />
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <DashboardHeader user={data.user} />
-        <main className="flex-1 overflow-y-auto p-6">
-          <ConnectionsView
-            userId={data.user.id}
-            projects={projects || []}
-            initialEntities={entities || []}
-            initialConnections={connections || []}
-          />
-        </main>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Connection Mapping</h1>
+        <p className="text-muted-foreground">Visualize relationships between entities and documents</p>
       </div>
-      <AIAssistant context={{ useDocuments: true }} />
+      <ConnectionsView
+        userId={data.user.id}
+        projects={projects || []}
+        initialEntities={entities || []}
+        initialConnections={connections || []}
+      />
     </div>
   )
 }

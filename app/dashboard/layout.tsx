@@ -20,6 +20,13 @@ export default async function DashboardLayout({
     redirect("/auth/login")
   }
 
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single()
+
   // Fetch user's projects for sidebar
   const { data: projects } = await supabase
     .from("projects")
@@ -29,9 +36,9 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader user={user} />
+      <DashboardHeader user={user} profile={profile} />
       <div className="flex">
-        <ProjectSidebar projects={projects || []} />
+        <ProjectSidebar projects={projects || []} userId={user.id} />
         <main className="flex-1 p-6">{children}</main>
       </div>
       <AIAssistant />
